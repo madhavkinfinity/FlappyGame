@@ -15,10 +15,14 @@ html,
 body {
   margin: 0;
   width: 100%;
-  min-height: 100%;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 body {
+  position: fixed;
+  inset: 0;
   font-family: "Georgia", "Palatino Linotype", "Times New Roman", serif;
   color: var(--ink);
   background:
@@ -30,12 +34,15 @@ body {
 
 .app {
   width: 100vw;
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100vh;
+  height: 100svh;
+  height: 100dvh;
   display: grid;
   grid-template-rows: auto 1fr;
   padding: max(0.55rem, env(safe-area-inset-top)) max(0.5rem, env(safe-area-inset-right)) max(0.5rem, env(safe-area-inset-bottom)) max(0.5rem, env(safe-area-inset-left));
   gap: 0.45rem;
+  overflow: hidden;
+  touch-action: none;
 }
 
 .hud-top {

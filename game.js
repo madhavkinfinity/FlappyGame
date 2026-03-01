@@ -69,6 +69,7 @@
     offsetX: 0,
     offsetY: 0,
   };
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
   function syncWorldTuning() {
     const portraitWorld = H > W;
@@ -1137,6 +1138,10 @@
   canvas.addEventListener("pointerdown", onInteract, { passive: false });
 
   function toggleFullscreen() {
+    if (isIOS) {
+      window.alert("On iPhone/iPad Safari, use Share -> Add to Home Screen for near-fullscreen play.");
+      return;
+    }
     const root = document.querySelector(".game-wrap");
     if (!document.fullscreenElement) {
       if (root && root.requestFullscreen) {
@@ -1153,6 +1158,10 @@
     if (!fullscreenBtn) {
       return;
     }
+    if (isIOS) {
+      fullscreenBtn.textContent = "Home Screen Mode";
+      return;
+    }
     fullscreenBtn.textContent = document.fullscreenElement ? "Exit Fullscreen" : "Fullscreen";
   }
 
@@ -1161,6 +1170,12 @@
     syncFullscreenButton();
   }
   document.addEventListener("fullscreenchange", syncFullscreenButton);
+  document.addEventListener("touchmove", (ev) => {
+    ev.preventDefault();
+  }, { passive: false });
+  document.addEventListener("gesturestart", (ev) => {
+    ev.preventDefault();
+  });
   window.addEventListener("resize", resizeCanvas);
   window.addEventListener("orientationchange", () => {
     setTimeout(resizeCanvas, 80);
