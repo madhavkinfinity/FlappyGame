@@ -50,6 +50,10 @@
     pipeGap: 180,
     pipeW: 90,
     spawnEvery: 1.22,
+    pipeTopPadding: 90,
+    pipeBottomPadding: 96,
+    currentForceX: 210,
+    currentForceY: 260,
     birdBaseX: W * 0.28,
     birdMinX: W * 0.2,
     birdMaxX: W * 0.39,
@@ -69,12 +73,32 @@
     offsetX: 0,
     offsetY: 0,
   };
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const fullscreenApi = {
+    request: document.documentElement.requestFullscreen
+      || document.documentElement.webkitRequestFullscreen
+      || document.documentElement.msRequestFullscreen,
+    exit: document.exitFullscreen
+      || document.webkitExitFullscreen
+      || document.msExitFullscreen,
+    element: () => document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement,
+  };
+  let immersiveFallback = false;
+
+  function isPortraitWorld() {
+    return H > W;
+  }
 
   function syncWorldTuning() {
-    const portraitWorld = H > W;
-    physics.pipeGap = portraitWorld ? 210 : 180;
-    physics.pipeW = portraitWorld ? 98 : 90;
+    const portraitWorld = isPortraitWorld();
+    physics.flapImpulse = portraitWorld ? -385 : -370;
+    physics.scrollSpeed = portraitWorld ? 162 : 185;
+    physics.spawnEvery = portraitWorld ? 1.36 : 1.22;
+    physics.pipeGap = portraitWorld ? 238 : 180;
+    physics.pipeW = portraitWorld ? 92 : 90;
+    physics.pipeTopPadding = portraitWorld ? 130 : 90;
+    physics.pipeBottomPadding = portraitWorld ? 132 : 96;
+    physics.currentForceX = portraitWorld ? 120 : 210;
+    physics.currentForceY = portraitWorld ? 170 : 260;
     physics.birdBaseX = W * 0.28;
     physics.birdMinX = W * 0.2;
     physics.birdMaxX = W * 0.39;
@@ -157,10 +181,12 @@
   function createCurrentFields() {
     const fields = [];
     let nextX = W + 170;
+    const yMin = isPortraitWorld() ? H * 0.25 : H * 0.2;
+    const yMax = isPortraitWorld() ? H * 0.52 : H * 0.58;
     for (let i = 0; i < 5; i += 1) {
       fields.push({
         x: nextX,
-        y: rand(H * 0.2, H * 0.58),
+        y: rand(yMin, yMax),
         rx: rand(90, 140),
         ry: rand(65, 110),
         pushX: rand(-1, 1) * rand(0.25, 0.65),
@@ -686,9 +712,8 @@
   }
 
   function spawnPipe() {
-    const margin = 96;
-    const topLimit = 90;
-    const bottomLimit = H - GROUND_H - margin;
+    const topLimit = physics.pipeTopPadding;
+    const bottomLimit = H - GROUND_H - physics.pipeBottomPadding;
     const gapY = rand(topLimit, bottomLimit);
 
     state.pipes.push({
@@ -743,7 +768,7 @@
       if (field.x < -field.rx - 40) {
         const farthestX = Math.max(...state.currentFields.map((f) => f.x));
         field.x = farthestX + rand(240, 410);
-        field.y = rand(H * 0.2, H * 0.58);
+        field.y = rand(isPortraitWorld() ? H * 0.25 : H * 0.2, isPortraitWorld() ? H * 0.52 : H * 0.58);
         field.rx = rand(90, 140);
         field.ry = rand(65, 110);
         field.pushX = rand(-1, 1) * rand(0.25, 0.65);
@@ -756,8 +781,8 @@
       const d2 = nx * nx + ny * ny;
       if (d2 < 1) {
         const influence = 1 - d2;
-        bird.vx += field.pushX * influence * dt * 210;
-        bird.vy += field.pushY * influence * dt * 260;
+        bird.vx += field.pushX * influence * dt * physics.currentForceX;
+        bird.vy += field.pushY * influence * dt * physics.currentForceY;
         bird.wingOpen = Math.min(1, bird.wingOpen + influence * 0.02);
       }
     }
@@ -1138,19 +1163,47 @@
   canvas.addEventListener("pointerdown", onInteract, { passive: false });
 
   function toggleFullscreen() {
-    if (isIOS) {
-      window.alert("On iPhone/iPad Safari, use Share -> Add to Home Screen for near-fullscreen play.");
-      return;
-    }
     const root = document.querySelector(".game-wrap");
-    if (!document.fullscreenElement) {
-      if (root && root.requestFullscreen) {
-        root.requestFullscreen().catch(() => {});
+    const activeElement = fullscreenApi.element();
+    if (activeElement) {
+      if (fullscreenApi.exit) {
+        try {
+          const exitResult = fullscreenApi.exit.call(document);
+          if (exitResult && typeof exitResult.catch === "function") {
+            exitResult.catch(() => {});
+          }
+        } catch (_) {
+          immersiveFallback = false;
+          document.body.classList.remove("immersive");
+          resizeCanvas();
+        }
+      } else {
+        immersiveFallback = false;
+        document.body.classList.remove("immersive");
+        resizeCanvas();
       }
       return;
     }
-    if (document.exitFullscreen) {
-      document.exitFullscreen().catch(() => {});
+
+    if (fullscreenApi.request && root) {
+      try {
+        const requestResult = fullscreenApi.request.call(root);
+        if (requestResult && typeof requestResult.catch === "function") {
+          requestResult.catch(() => {
+            immersiveFallback = !immersiveFallback;
+            document.body.classList.toggle("immersive", immersiveFallback);
+            resizeCanvas();
+          });
+        }
+      } catch (_) {
+        immersiveFallback = !immersiveFallback;
+        document.body.classList.toggle("immersive", immersiveFallback);
+        resizeCanvas();
+      }
+    } else {
+      immersiveFallback = !immersiveFallback;
+      document.body.classList.toggle("immersive", immersiveFallback);
+      resizeCanvas();
     }
   }
 
@@ -1158,18 +1211,44 @@
     if (!fullscreenBtn) {
       return;
     }
-    if (isIOS) {
-      fullscreenBtn.textContent = "Home Screen Mode";
+    const activeElement = fullscreenApi.element();
+    if (activeElement || immersiveFallback) {
+      fullscreenBtn.textContent = "Exit Fullscreen";
       return;
     }
-    fullscreenBtn.textContent = document.fullscreenElement ? "Exit Fullscreen" : "Fullscreen";
+    fullscreenBtn.textContent = "Fullscreen";
+  }
+
+  function registerServiceWorker() {
+    if (!("serviceWorker" in navigator)) {
+      return;
+    }
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./sw.js").catch(() => {});
+    });
+  }
+
+  function enableMobileFullscreenGesture() {
+    if (!("visualViewport" in window)) {
+      return;
+    }
+    // Pull the URL bar away after user interaction where browser allows it.
+    window.setTimeout(() => {
+      window.scrollTo(0, 1);
+    }, 120);
   }
 
   if (fullscreenBtn) {
-    fullscreenBtn.addEventListener("click", toggleFullscreen);
+    fullscreenBtn.addEventListener("click", () => {
+      toggleFullscreen();
+      enableMobileFullscreenGesture();
+      syncFullscreenButton();
+    });
     syncFullscreenButton();
   }
+
   document.addEventListener("fullscreenchange", syncFullscreenButton);
+  document.addEventListener("webkitfullscreenchange", syncFullscreenButton);
   document.addEventListener("touchmove", (ev) => {
     ev.preventDefault();
   }, { passive: false });
@@ -1180,6 +1259,8 @@
   window.addEventListener("orientationchange", () => {
     setTimeout(resizeCanvas, 80);
   });
+
+  registerServiceWorker();
 
   syncWorldTuning();
   bestScoreEl.textContent = `Best: ${state.best}`;

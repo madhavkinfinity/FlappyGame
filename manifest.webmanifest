@@ -1,0 +1,19 @@
+{
+  "name": "Fun Flamingo",
+  "short_name": "FunFlamingo",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ece8dc",
+  "theme_color": "#c8dfd5",
+  "description": "A watercolor flamingo arcade game with gentle currents and piano-like soundscape.",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

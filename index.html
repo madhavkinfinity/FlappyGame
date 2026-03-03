@@ -3,9 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#c8dfd5" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Fun Flamingo" />
     <title>Fun Flamingo</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icon.svg" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -19,6 +24,10 @@
         <canvas id="game" width="900" height="600" aria-label="Fun Flamingo game canvas"></canvas>
 
         <div id="splash" class="overlay splash visible" role="dialog" aria-live="polite">
+          <div class="splash-mark" aria-hidden="true">
+            <span class="splash-ring"></span>
+            <span class="splash-dot"></span>
+          </div>
           <h2>Fun Flamingo</h2>
           <p>Float through painted currents in a Monet-inspired pond.</p>
           <button id="splashStartBtn" type="button">Tap To Start</button>
