@@ -61,7 +61,10 @@
     },
     pipes: [],
     lastPipeGapY: null,
+    trendShift: 0,
+    trendSteps: 0,
     pipeTimer: 0,
+    pipeCount: 0,
     camX: 0,
     ripples: [],
     rippleTimer: 0,
@@ -182,6 +185,10 @@
 
   function rand(min, max) {
     return Math.random() * (max - min) + min;
+  }
+
+  function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
   }
 
   function noise2D(x, y, seed) {
@@ -349,7 +356,7 @@
     masterGain.connect(audioCtx.destination);
 
     ambientNodes = createAmbientLoop(audioCtx, masterGain);
-    musicNodes = createSoothingMusicLoop(audioCtx, masterGain);
+    musicNodes = createRetroMusicLoop(audioCtx, masterGain);
   }
 
   function resumeAudio() {
@@ -467,75 +474,116 @@
     env.connect(dest);
   }
 
-  function createSoothingMusicLoop(ctx, dest) {
+  function playChipNote(ctx, dest, frequency, now, duration, peakGain, type = "square") {
+    const osc = ctx.createOscillator();
+    osc.type = type;
+    osc.frequency.setValueAtTime(frequency, now);
+    osc.detune.setValueAtTime((Math.random() - 0.5) * 4, now);
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(type === "triangle" ? 1600 : 2200, now);
+
+    const amp = ctx.createGain();
+    scheduleEnvelope(amp.gain, now, [
+      [0.0001, 0],
+      [peakGain, 0.01],
+      [peakGain * 0.72, duration * 0.35],
+      [0.0001, duration],
+    ]);
+
+    osc.connect(filter);
+    filter.connect(amp);
+    amp.connect(dest);
+
+    osc.start(now);
+    osc.stop(now + duration + 0.01);
+  }
+
+  function playChipNoise(ctx, dest, now, duration, peakGain, color = 1500) {
+    const noise = ctx.createBufferSource();
+    noise.buffer = createNoiseBuffer(ctx, Math.max(0.05, duration));
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.frequency.setValueAtTime(color, now);
+    filter.Q.value = 1.2;
+
+    const amp = ctx.createGain();
+    scheduleEnvelope(amp.gain, now, [
+      [0.0001, 0],
+      [peakGain, 0.004],
+      [0.0001, duration],
+    ]);
+
+    noise.connect(filter);
+    filter.connect(amp);
+    amp.connect(dest);
+
+    noise.start(now);
+    noise.stop(now + duration + 0.02);
+  }
+
+  function createRetroMusicLoop(ctx, dest) {
     const musicGain = ctx.createGain();
-    musicGain.gain.value = 0.24;
+    musicGain.gain.value = 0.19;
     musicGain.connect(dest);
 
-    const room = ctx.createBiquadFilter();
-    room.type = "lowpass";
-    room.frequency.value = 2100;
-    room.Q.value = 0.6;
-    room.connect(musicGain);
+    const chipBus = ctx.createBiquadFilter();
+    chipBus.type = "lowpass";
+    chipBus.frequency.value = 2300;
+    chipBus.Q.value = 0.7;
+    chipBus.connect(musicGain);
 
-    const roomLfo = ctx.createOscillator();
-    roomLfo.type = "sine";
-    roomLfo.frequency.value = 0.05;
-    const roomLfoGain = ctx.createGain();
-    roomLfoGain.gain.value = 120;
-    roomLfo.connect(roomLfoGain);
-    roomLfoGain.connect(room.frequency);
-    roomLfo.start();
-
-    // Gentle major-leaning progression for a soothing piano tune.
-    const progression = [
-      [0, 4, 7],
-      [2, 5, 9],
-      [4, 7, 11],
-      [5, 9, 12],
-    ];
-    const melody = [12, 14, 16, 19, 16, 14, 12, 11];
-    const bassPattern = [0, 0, 7, 7, 4, 4, 7, 7];
-    let chordIndex = 0;
-    let melodyIndex = 0;
-    let bassIndex = 0;
-    let nextTime = ctx.currentTime + 0.25;
-    let beatStep = 0;
+    const rhythmRoots = [0, 5, 7, 9];
+    const scale = [0, 2, 4, 5, 7, 9, 11, 12];
+    let rootIndex = 0;
+    let bar = 0;
+    let step = 0;
+    let nextTime = ctx.currentTime + 0.2;
+    const stepDur = 60 / 148 / 4;
 
     const scheduler = window.setInterval(() => {
-      while (nextTime < ctx.currentTime + 0.8) {
-        const chord = progression[chordIndex];
-        const root = hzFromSemitone(chord[0]);
+      while (nextTime < ctx.currentTime + 0.22) {
+        const root = rhythmRoots[rootIndex];
 
-        if (beatStep % 2 === 0) {
-          // Left hand bass note.
-          const bassOffset = bassPattern[bassIndex % bassPattern.length] - 12;
-          playMusicNote(ctx, room, hzFromSemitone(chord[0] + bassOffset), nextTime, 1.55, 0.028);
-          bassIndex += 1;
+        if (step % 4 === 0) {
+          playChipNote(ctx, chipBus, hzFromSemitone(root - 12), nextTime, stepDur * 3.6, 0.06, "triangle");
         }
 
-        // Right hand broken chord plus melody.
-        playMusicNote(ctx, room, root, nextTime + 0.08, 1.0, 0.014);
-        playMusicNote(ctx, room, hzFromSemitone(chord[1]), nextTime + 0.22, 0.95, 0.012);
-        playMusicNote(ctx, room, hzFromSemitone(chord[2]), nextTime + 0.36, 0.9, 0.01);
-
-        const melodyPitch = chord[0] + (melody[melodyIndex] - 5);
-        playMusicNote(ctx, room, hzFromSemitone(melodyPitch), nextTime + 0.48, 1.05, 0.013);
-
-        beatStep += 1;
-        melodyIndex = (melodyIndex + 1) % melody.length;
-        if (beatStep % 2 === 0) {
-          chordIndex = (chordIndex + 1) % progression.length;
+        if (step % 8 === 0) {
+          playChipNoise(ctx, chipBus, nextTime, 0.07, 0.05, 900);
+        } else if (step % 4 === 0) {
+          playChipNoise(ctx, chipBus, nextTime, 0.05, 0.022, 1700);
         }
-        nextTime += 0.8;
+
+        const melodyChance = step % 2 === 0 ? 0.9 : 0.4;
+        if (Math.random() < melodyChance) {
+          const degree = scale[Math.floor(rand(0, scale.length))];
+          const octave = Math.random() < 0.17 ? 24 : 12;
+          const note = root + degree + octave;
+          const noteDur = step % 4 === 0 ? stepDur * 1.8 : stepDur * 0.95;
+          playChipNote(ctx, chipBus, hzFromSemitone(note), nextTime, noteDur, 0.04, "square");
+          if (Math.random() < 0.28) {
+            playChipNote(ctx, chipBus, hzFromSemitone(note + 7), nextTime + stepDur * 0.15, noteDur * 0.75, 0.018, "square");
+          }
+        }
+
+        step += 1;
+        if (step % 16 === 0) {
+          bar += 1;
+          rootIndex = (rootIndex + 1 + (Math.random() < 0.2 ? 1 : 0)) % rhythmRoots.length;
+          if (bar % 4 === 0 && Math.random() < 0.45) {
+            rootIndex = (rootIndex + 2) % rhythmRoots.length;
+          }
+        }
+        nextTime += stepDur;
       }
-    }, 260);
+    }, 90);
 
     return {
       musicGain,
-      room,
-      roomLfo,
-      roomLfoGain,
+      chipBus,
       scheduler,
     };
   }
@@ -688,7 +736,10 @@
     state.score = 0;
     state.pipes.length = 0;
     state.lastPipeGapY = null;
+    state.trendShift = 0;
+    state.trendSteps = 0;
     state.pipeTimer = 0;
+    state.pipeCount = 0;
     state.bird.y = H * 0.42;
     state.bird.x = physics.birdBaseX;
     state.bird.vx = 0;
@@ -744,9 +795,11 @@
   }
 
   function spawnPipe() {
+    const difficulty = getDifficulty();
     const topLimit = physics.pipeTopPadding;
     const bottomLimit = H - GROUND_H - physics.pipeBottomPadding;
-    const maxStep = Math.max(56, physics.pipeGap * 0.34);
+    const dynamicGap = clamp(physics.pipeGap * (1 - difficulty * 0.2), 132, physics.pipeGap);
+    const maxStep = Math.max(58, dynamicGap * 0.34 + difficulty * 34);
     let minGapY = topLimit;
     let maxGapY = bottomLimit;
 
@@ -760,15 +813,32 @@
       maxGapY = bottomLimit;
     }
 
-    const gapY = rand(minGapY, maxGapY);
+    if (state.trendSteps <= 0 && Math.random() < 0.24 + difficulty * 0.3) {
+      const direction = Math.random() < 0.5 ? -1 : 1;
+      state.trendShift = direction * rand(40, 66 + difficulty * 36);
+      state.trendSteps = Math.floor(rand(2, 5));
+    }
+
+    const shift = state.trendSteps > 0 ? state.trendShift + rand(-18, 18) : rand(-maxStep, maxStep);
+    const baseY = typeof state.lastPipeGapY === "number" ? state.lastPipeGapY : rand(minGapY, maxGapY);
+    const gapY = clamp(baseY + shift, minGapY, maxGapY);
+    state.trendSteps = Math.max(0, state.trendSteps - 1);
     state.lastPipeGapY = gapY;
+    state.pipeCount += 1;
 
     state.pipes.push({
       x: W + 40,
       gapY,
+      gap: dynamicGap,
       passed: false,
       hue: rand(108, 156),
     });
+  }
+
+  function getDifficulty() {
+    const fromScore = clamp(state.score / 38, 0, 1);
+    const fromTime = clamp(state.time / 85, 0, 1);
+    return clamp(fromScore * 0.72 + fromTime * 0.28, 0, 1);
   }
 
   function update(dt) {
@@ -777,7 +847,13 @@
       return;
     }
 
-    state.camX += physics.scrollSpeed * dt;
+    const difficulty = getDifficulty();
+    const liveScrollSpeed = physics.scrollSpeed * (1 + difficulty * 0.2);
+    const liveCurrentX = physics.currentForceX * (1 + difficulty * 0.25);
+    const liveCurrentY = physics.currentForceY * (1 + difficulty * 0.2);
+    const spawnEvery = physics.spawnEvery * (1 - difficulty * 0.2);
+
+    state.camX += liveScrollSpeed * dt;
 
     const bird = state.bird;
     bird.wingPulse = Math.max(0, bird.wingPulse - dt * 2.9);
@@ -786,7 +862,7 @@
     bird.vx += (physics.birdBaseX - bird.x) * dt * 6.5;
 
     for (const field of state.currentFields) {
-      field.x -= physics.scrollSpeed * dt;
+      field.x -= liveScrollSpeed * dt;
       if (field.x < -field.rx - 40) {
         const farthestX = Math.max(...state.currentFields.map((f) => f.x));
         field.x = farthestX + rand(240, 410);
@@ -803,8 +879,8 @@
       const d2 = nx * nx + ny * ny;
       if (d2 < 1) {
         const influence = 1 - d2;
-        bird.vx += field.pushX * influence * dt * physics.currentForceX;
-        bird.vy += field.pushY * influence * dt * physics.currentForceY;
+        bird.vx += field.pushX * influence * dt * liveCurrentX;
+        bird.vy += field.pushY * influence * dt * liveCurrentY;
         bird.wingOpen = Math.min(1, bird.wingOpen + influence * 0.02);
       }
     }
@@ -817,14 +893,14 @@
     bird.rot += (Math.min(1.05, bird.vy / 470 + bird.vx / 260) - bird.rot) * 0.12;
 
     state.pipeTimer += dt;
-    if (state.pipeTimer >= physics.spawnEvery) {
+    if (state.pipeTimer >= spawnEvery) {
       state.pipeTimer = 0;
       spawnPipe();
     }
 
     for (let i = state.pipes.length - 1; i >= 0; i -= 1) {
       const pipe = state.pipes[i];
-      pipe.x -= physics.scrollSpeed * dt;
+      pipe.x -= liveScrollSpeed * dt;
 
       if (!pipe.passed && pipe.x + physics.pipeW < bird.x) {
         pipe.passed = true;
@@ -839,8 +915,9 @@
 
       const withinX = bird.x + bird.r > pipe.x && bird.x - bird.r < pipe.x + physics.pipeW;
       if (withinX) {
-        const hitTop = bird.y - bird.r < pipe.gapY - physics.pipeGap * 0.5;
-        const hitBottom = bird.y + bird.r > pipe.gapY + physics.pipeGap * 0.5;
+        const gapHalf = pipe.gap * 0.5;
+        const hitTop = bird.y - bird.r < pipe.gapY - gapHalf;
+        const hitBottom = bird.y + bird.r > pipe.gapY + gapHalf;
         if (hitTop || hitBottom) {
           setGameOver();
           return;
@@ -855,7 +932,7 @@
 
   function drawPaintedPipe(pipe, isTop) {
     const pipeX = pipe.x;
-    const gapHalf = physics.pipeGap * 0.5;
+    const gapHalf = pipe.gap * 0.5;
     const edge = isTop ? pipe.gapY - gapHalf : pipe.gapY + gapHalf;
 
     const y = isTop ? 0 : edge;
