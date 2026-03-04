@@ -13,8 +13,33 @@
   const finalScoreEl = document.getElementById("finalScore");
   const bestScoreEl = document.getElementById("bestScore");
 
-  let W = window.innerHeight > window.innerWidth ? 600 : 900;
-  let H = window.innerHeight > window.innerWidth ? 900 : 600;
+  function getWorldSize() {
+    const portrait = window.innerHeight > window.innerWidth;
+    const rawAspect = window.innerWidth > 0 ? window.innerHeight / window.innerWidth : 1;
+
+    if (portrait) {
+      // Keep gameplay tuned for common tall mobile ratios while still scaling cleanly to larger displays.
+      const clampedAspect = Math.min(2.25, Math.max(1.6, rawAspect));
+      const worldWidth = 720;
+      return {
+        width: worldWidth,
+        height: Math.round(worldWidth * clampedAspect),
+      };
+    }
+
+    // Landscape supports tablets/desktop through to 4K by preserving visible field width.
+    const landscapeAspect = 1 / Math.max(rawAspect, 0.01);
+    const clampedAspect = Math.min(2.25, Math.max(1.45, landscapeAspect));
+    const worldHeight = 720;
+    return {
+      width: Math.round(worldHeight * clampedAspect),
+      height: worldHeight,
+    };
+  }
+
+  const initialWorld = getWorldSize();
+  let W = initialWorld.width;
+  let H = initialWorld.height;
   let GROUND_H = Math.round(H * 0.14);
 
   const STORAGE_KEY = "watercolor_flappy_best";
@@ -90,13 +115,18 @@
 
   function syncWorldTuning() {
     const portraitWorld = isPortraitWorld();
-    physics.flapImpulse = portraitWorld ? -385 : -370;
-    physics.scrollSpeed = portraitWorld ? 162 : 185;
-    physics.spawnEvery = portraitWorld ? 1.36 : 1.22;
-    physics.pipeGap = portraitWorld ? 238 : 180;
-    physics.pipeW = portraitWorld ? 92 : 90;
-    physics.pipeTopPadding = portraitWorld ? 130 : 90;
-    physics.pipeBottomPadding = portraitWorld ? 132 : 96;
+    const portraitAspect = H / Math.max(W, 1);
+    const landscapeAspect = W / Math.max(H, 1);
+
+    physics.flapImpulse = portraitWorld ? -390 : -372;
+    physics.scrollSpeed = portraitWorld ? 168 : 188;
+    physics.spawnEvery = portraitWorld ? 1.42 : 1.28;
+    physics.pipeGap = portraitWorld
+      ? Math.round(H * Math.min(0.29, Math.max(0.25, 0.24 + (portraitAspect - 1.7) * 0.05)))
+      : Math.round(H * Math.min(0.34, Math.max(0.29, 0.27 + (landscapeAspect - 1.45) * 0.02)));
+    physics.pipeW = portraitWorld ? 100 : 96;
+    physics.pipeTopPadding = portraitWorld ? Math.round(H * 0.12) : Math.round(H * 0.14);
+    physics.pipeBottomPadding = portraitWorld ? Math.round(H * 0.18) : Math.round(H * 0.16);
     physics.currentForceX = portraitWorld ? 120 : 210;
     physics.currentForceY = portraitWorld ? 170 : 260;
     physics.birdBaseX = W * 0.28;
@@ -112,9 +142,9 @@
   }
 
   function applyWorldOrientationIfNeeded() {
-    const portrait = window.innerHeight > window.innerWidth;
-    const nextW = portrait ? 600 : 900;
-    const nextH = portrait ? 900 : 600;
+    const world = getWorldSize();
+    const nextW = world.width;
+    const nextH = world.height;
     if (nextW === W && nextH === H) {
       return;
     }
@@ -141,7 +171,7 @@
   function resizeCanvas() {
     applyWorldOrientationIfNeeded();
     const rect = canvas.getBoundingClientRect();
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
     canvas.width = Math.max(1, Math.round(rect.width * dpr));
     canvas.height = Math.max(1, Math.round(rect.height * dpr));
     viewport.scale = Math.min(canvas.width / W, canvas.height / H);
@@ -842,15 +872,20 @@
       return;
     }
 
+    const worldTop = -10;
+    const worldBottom = H - GROUND_H + 10;
+
     for (let i = 0; i < 4; i += 1) {
       const bleed = rand(-8, 8);
       const alpha = 0.12 + i * 0.03;
       ctx.fillStyle = `hsla(${pipe.hue}, 30%, ${44 + i * 2}%, ${alpha})`;
+      const headY = isTop ? worldTop : y + rand(-2, 2);
+      const tailY = isTop ? y + h + rand(-2, 2) : worldBottom;
       ctx.beginPath();
-      ctx.moveTo(pipeX + bleed, y);
-      ctx.lineTo(pipeX + physics.pipeW + rand(-6, 6), y + rand(-4, 4));
-      ctx.lineTo(pipeX + physics.pipeW + rand(-8, 8), y + h + rand(-5, 5));
-      ctx.lineTo(pipeX + rand(-8, 8), y + h + rand(-5, 5));
+      ctx.moveTo(pipeX + bleed, headY);
+      ctx.lineTo(pipeX + physics.pipeW + rand(-6, 6), headY + rand(-1.5, 1.5));
+      ctx.lineTo(pipeX + physics.pipeW + rand(-8, 8), tailY + rand(-1.5, 1.5));
+      ctx.lineTo(pipeX + rand(-8, 8), tailY);
       ctx.closePath();
       ctx.fill();
     }
@@ -1229,13 +1264,7 @@
   }
 
   function enableMobileFullscreenGesture() {
-    if (!("visualViewport" in window)) {
-      return;
-    }
-    // Pull the URL bar away after user interaction where browser allows it.
-    window.setTimeout(() => {
-      window.scrollTo(0, 1);
-    }, 120);
+    // Intentionally empty: keep page anchored to prevent accidental browser scrolling.
   }
 
   if (fullscreenBtn) {
@@ -1250,6 +1279,9 @@
   document.addEventListener("fullscreenchange", syncFullscreenButton);
   document.addEventListener("webkitfullscreenchange", syncFullscreenButton);
   document.addEventListener("touchmove", (ev) => {
+    ev.preventDefault();
+  }, { passive: false });
+  document.addEventListener("wheel", (ev) => {
     ev.preventDefault();
   }, { passive: false });
   document.addEventListener("gesturestart", (ev) => {
