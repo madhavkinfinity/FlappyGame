@@ -42,7 +42,7 @@
   let H = initialWorld.height;
   let GROUND_H = Math.round(H * 0.14);
 
-  const STORAGE_KEY = "watercolor_flappy_best";
+  const STORAGE_KEY = "jetpack_flamingo_best";
 
   const state = {
     mode: "menu",
@@ -66,21 +66,21 @@
     camX: 0,
     ripples: [],
     rippleTimer: 0,
-    lilyPads: createLilyPads(16),
+    lilyPads: [],
     currentFields: createCurrentFields(),
   };
 
   const physics = {
-    gravity: 980,
-    flapImpulse: -370,
-    scrollSpeed: 185,
-    pipeGap: 180,
-    pipeW: 90,
-    spawnEvery: 1.22,
-    pipeTopPadding: 90,
-    pipeBottomPadding: 96,
-    currentForceX: 210,
-    currentForceY: 260,
+    gravity: 1060,
+    flapImpulse: -420,
+    scrollSpeed: 210,
+    pipeGap: 190,
+    pipeW: 94,
+    spawnEvery: 1.08,
+    pipeTopPadding: 88,
+    pipeBottomPadding: 98,
+    currentForceX: 90,
+    currentForceY: 120,
     birdBaseX: W * 0.28,
     birdMinX: W * 0.2,
     birdMaxX: W * 0.39,
@@ -165,7 +165,7 @@
     state.pipes.length = 0;
     state.pipeTimer = 0;
     state.ripples.length = 0;
-    state.lilyPads = createLilyPads(16);
+    state.lilyPads = [];
     state.currentFields = createCurrentFields();
   }
 
@@ -216,17 +216,17 @@
   function createCurrentFields() {
     const fields = [];
     let nextX = W + 170;
-    const yMin = isPortraitWorld() ? H * 0.25 : H * 0.2;
-    const yMax = isPortraitWorld() ? H * 0.52 : H * 0.58;
+    const yMin = isPortraitWorld() ? H * 0.28 : H * 0.24;
+    const yMax = isPortraitWorld() ? H * 0.6 : H * 0.66;
     for (let i = 0; i < 5; i += 1) {
       fields.push({
         x: nextX,
         y: rand(yMin, yMax),
-        rx: rand(90, 140),
-        ry: rand(65, 110),
-        pushX: rand(-1, 1) * rand(0.25, 0.65),
-        pushY: rand(-1, 1) * rand(0.35, 0.85),
-        hue: rand(182, 214),
+        rx: rand(90, 150),
+        ry: rand(52, 94),
+        pushX: rand(-1, 1) * rand(0.1, 0.28),
+        pushY: rand(-1, 1) * rand(0.12, 0.35),
+        hue: rand(195, 216),
         phase: rand(0, Math.PI * 2),
       });
       nextX += rand(260, 400);
@@ -289,29 +289,37 @@
     const cctx = c.getContext("2d");
 
     const skyGrad = cctx.createLinearGradient(0, 0, 0, height);
-    skyGrad.addColorStop(0, "#d2f0f8");
-    skyGrad.addColorStop(0.5, "#bee7da");
-    skyGrad.addColorStop(1, "#a8deb5");
+    skyGrad.addColorStop(0, "#dff1ff");
+    skyGrad.addColorStop(0.45, "#bfd9fb");
+    skyGrad.addColorStop(1, "#a7c5ec");
     cctx.fillStyle = skyGrad;
     cctx.fillRect(0, 0, c.width, c.height);
 
-    for (let i = 0; i < 24; i += 1) {
-      const x = rand(0, c.width);
-      const y = rand(height * 0.18, height * 0.55);
-      paintBlob(cctx, x, y, rand(80, 170), rand(25, 55), "rgba(94, 168, 143, ALPHA)", 5);
-      paintBlob(cctx, x + rand(-30, 30), y + rand(-14, 14), rand(60, 140), rand(22, 48), "rgba(164, 209, 171, ALPHA)", 4);
+    for (let i = 0; i < 20; i += 1) {
+      const baseX = rand(0, c.width);
+      const baseY = rand(height * 0.34, height * 0.62);
+      const mountainW = rand(180, 320);
+      const peakH = rand(110, 210);
+
+      cctx.beginPath();
+      cctx.moveTo(baseX - mountainW * 0.5, baseY);
+      cctx.lineTo(baseX, baseY - peakH);
+      cctx.lineTo(baseX + mountainW * 0.5, baseY);
+      cctx.closePath();
+      cctx.fillStyle = "rgba(110, 138, 182, 0.36)";
+      cctx.fill();
+
+      cctx.beginPath();
+      cctx.moveTo(baseX - mountainW * 0.22, baseY - peakH * 0.55);
+      cctx.lineTo(baseX, baseY - peakH);
+      cctx.lineTo(baseX + mountainW * 0.22, baseY - peakH * 0.56);
+      cctx.closePath();
+      cctx.fillStyle = "rgba(241, 248, 255, 0.86)";
+      cctx.fill();
     }
 
-    for (let i = 0; i < 45; i += 1) {
-      const x = rand(0, c.width);
-      const y = rand(height * 0.67, height - 20);
-      paintBlob(cctx, x, y, rand(40, 90), rand(16, 36), "rgba(80, 153, 97, ALPHA)", 4);
-    }
-
-    cctx.globalCompositeOperation = "multiply";
-    cctx.fillStyle = "rgba(58, 121, 92, 0.22)";
+    cctx.fillStyle = "rgba(236, 246, 255, 0.65)";
     cctx.fillRect(0, height - GROUND_H, c.width, GROUND_H);
-    cctx.globalCompositeOperation = "source-over";
 
     return c;
   }
@@ -420,41 +428,40 @@
     }
     const now = audioCtx.currentTime;
 
-    const osc = audioCtx.createOscillator();
-    osc.type = "triangle";
-    osc.frequency.setValueAtTime(600, now);
-    osc.frequency.exponentialRampToValueAtTime(320, now + 0.11);
+    const thrust = audioCtx.createOscillator();
+    thrust.type = "sawtooth";
+    thrust.frequency.setValueAtTime(180, now);
+    thrust.frequency.exponentialRampToValueAtTime(110, now + 0.14);
 
-    const gain = audioCtx.createGain();
-    scheduleEnvelope(gain.gain, now, [
+    const thrustGain = audioCtx.createGain();
+    scheduleEnvelope(thrustGain.gain, now, [
       [0.0001, 0],
-      [0.18, 0.01],
-      [0.0001, 0.13],
+      [0.14, 0.015],
+      [0.0001, 0.16],
     ]);
 
-    const noise = audioCtx.createBufferSource();
-    noise.buffer = createNoiseBuffer(audioCtx, 0.16);
-    const noiseFilter = audioCtx.createBiquadFilter();
-    noiseFilter.type = "highpass";
-    noiseFilter.frequency.value = 1500;
-    const noiseGain = audioCtx.createGain();
-    scheduleEnvelope(noiseGain.gain, now, [
+    const hiss = audioCtx.createBufferSource();
+    hiss.buffer = createNoiseBuffer(audioCtx, 0.2);
+    const hissFilter = audioCtx.createBiquadFilter();
+    hissFilter.type = "bandpass";
+    hissFilter.frequency.value = 1600;
+    const hissGain = audioCtx.createGain();
+    scheduleEnvelope(hissGain.gain, now, [
       [0.0001, 0],
-      [0.08, 0.01],
-      [0.0001, 0.08],
+      [0.06, 0.01],
+      [0.0001, 0.12],
     ]);
 
-    osc.connect(gain);
-    gain.connect(masterGain);
+    thrust.connect(thrustGain);
+    thrustGain.connect(masterGain);
+    hiss.connect(hissFilter);
+    hissFilter.connect(hissGain);
+    hissGain.connect(masterGain);
 
-    noise.connect(noiseFilter);
-    noiseFilter.connect(noiseGain);
-    noiseGain.connect(masterGain);
-
-    osc.start(now);
-    osc.stop(now + 0.15);
-    noise.start(now);
-    noise.stop(now + 0.12);
+    thrust.start(now);
+    thrust.stop(now + 0.18);
+    hiss.start(now);
+    hiss.stop(now + 0.14);
   }
 
   function playScoreSound() {
@@ -462,22 +469,20 @@
       return;
     }
     const now = audioCtx.currentTime;
-    [740, 988].forEach((freq, idx) => {
+    [660, 880, 1108].forEach((freq, idx) => {
       const osc = audioCtx.createOscillator();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(freq, now + idx * 0.06);
-
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(freq, now + idx * 0.05);
       const gain = audioCtx.createGain();
-      scheduleEnvelope(gain.gain, now + idx * 0.06, [
+      scheduleEnvelope(gain.gain, now + idx * 0.05, [
         [0.0001, 0],
-        [0.13, 0.01],
-        [0.0001, 0.18],
+        [0.11, 0.01],
+        [0.0001, 0.15],
       ]);
-
       osc.connect(gain);
       gain.connect(masterGain);
-      osc.start(now + idx * 0.06);
-      osc.stop(now + idx * 0.23);
+      osc.start(now + idx * 0.05);
+      osc.stop(now + idx * 0.18);
     });
   }
 
@@ -487,43 +492,39 @@
     }
     const now = audioCtx.currentTime;
 
-    const osc = audioCtx.createOscillator();
-    osc.type = "square";
-    osc.frequency.setValueAtTime(180, now);
-    osc.frequency.exponentialRampToValueAtTime(78, now + 0.22);
-
-    const oscGain = audioCtx.createGain();
-    scheduleEnvelope(oscGain.gain, now, [
+    const crack = audioCtx.createBufferSource();
+    crack.buffer = createNoiseBuffer(audioCtx, 0.22);
+    const crackFilter = audioCtx.createBiquadFilter();
+    crackFilter.type = "highpass";
+    crackFilter.frequency.value = 720;
+    const crackGain = audioCtx.createGain();
+    scheduleEnvelope(crackGain.gain, now, [
       [0.0001, 0],
-      [0.2, 0.008],
+      [0.2, 0.01],
+      [0.0001, 0.2],
+    ]);
+
+    const low = audioCtx.createOscillator();
+    low.type = "sine";
+    low.frequency.setValueAtTime(130, now);
+    low.frequency.exponentialRampToValueAtTime(70, now + 0.2);
+    const lowGain = audioCtx.createGain();
+    scheduleEnvelope(lowGain.gain, now, [
+      [0.0001, 0],
+      [0.16, 0.015],
       [0.0001, 0.24],
     ]);
 
-    const noise = audioCtx.createBufferSource();
-    noise.buffer = createNoiseBuffer(audioCtx, 0.24);
-    const nFilter = audioCtx.createBiquadFilter();
-    nFilter.type = "bandpass";
-    nFilter.frequency.value = 420;
-    nFilter.Q.value = 1.1;
+    crack.connect(crackFilter);
+    crackFilter.connect(crackGain);
+    crackGain.connect(masterGain);
+    low.connect(lowGain);
+    lowGain.connect(masterGain);
 
-    const nGain = audioCtx.createGain();
-    scheduleEnvelope(nGain.gain, now, [
-      [0.0001, 0],
-      [0.12, 0.01],
-      [0.0001, 0.21],
-    ]);
-
-    osc.connect(oscGain);
-    oscGain.connect(masterGain);
-
-    noise.connect(nFilter);
-    nFilter.connect(nGain);
-    nGain.connect(masterGain);
-
-    osc.start(now);
-    osc.stop(now + 0.26);
-    noise.start(now);
-    noise.stop(now + 0.22);
+    crack.start(now);
+    crack.stop(now + 0.22);
+    low.start(now);
+    low.stop(now + 0.24);
   }
 
   function playGameOverSound() {
@@ -603,7 +604,7 @@
       return;
     }
 
-    state.bird.vy = physics.flapImpulse;
+    state.bird.vy = Math.min(state.bird.vy - 90, physics.flapImpulse);
     state.bird.wingPulse = 1;
     state.bird.wingOpen = Math.max(state.bird.wingOpen, 0.64);
     state.bird.rot = -0.46;
@@ -637,7 +638,7 @@
       gapY,
       gap: dynamicGap,
       passed: false,
-      hue: rand(108, 156),
+      hue: rand(194, 220),
     });
   }
 
@@ -737,7 +738,7 @@
   }
 
   function drawPaintedPipe(pipe, isTop) {
-    const pipeX = pipe.x;
+    const centerX = pipe.x + physics.pipeW * 0.5;
     const gapHalf = pipe.gap * 0.5;
     const edge = isTop ? pipe.gapY - gapHalf : pipe.gapY + gapHalf;
 
@@ -747,35 +748,36 @@
       return;
     }
 
-    const worldTop = -10;
-    const worldBottom = H - GROUND_H + 10;
+    const baseY = isTop ? y : y + h;
+    const tipY = isTop ? y + h : y;
+    const halfW = physics.pipeW * 0.52;
 
-    for (let i = 0; i < 4; i += 1) {
-      const bleed = rand(-8, 8);
-      const alpha = 0.12 + i * 0.03;
-      ctx.fillStyle = `hsla(${pipe.hue}, 30%, ${44 + i * 2}%, ${alpha})`;
-      const headY = isTop ? worldTop : y + rand(-2, 2);
-      const tailY = isTop ? y + h + rand(-2, 2) : worldBottom;
-      ctx.beginPath();
-      ctx.moveTo(pipeX + bleed, headY);
-      ctx.lineTo(pipeX + physics.pipeW + rand(-6, 6), headY + rand(-1.5, 1.5));
-      ctx.lineTo(pipeX + physics.pipeW + rand(-8, 8), tailY + rand(-1.5, 1.5));
-      ctx.lineTo(pipeX + rand(-8, 8), tailY);
-      ctx.closePath();
-      ctx.fill();
-    }
+    const coneGrad = ctx.createLinearGradient(centerX, tipY, centerX, baseY);
+    coneGrad.addColorStop(0, "rgba(237, 248, 255, 0.96)");
+    coneGrad.addColorStop(1, "rgba(166, 203, 236, 0.88)");
 
-    for (let i = 0; i < 28; i += 1) {
-      const nx = pipeX + rand(8, physics.pipeW - 8);
-      const ny = y + rand(6, h - 6);
-      const n = noise2D(nx * 0.03, ny * 0.04, i);
-      ctx.fillStyle = `rgba(45, 66, 57, ${0.03 + n * 0.09})`;
-      ctx.fillRect(nx, ny, rand(1, 3), rand(1, 3));
-    }
+    ctx.beginPath();
+    ctx.moveTo(centerX - halfW, baseY);
+    ctx.lineTo(centerX, tipY);
+    ctx.lineTo(centerX + halfW, baseY);
+    ctx.closePath();
+    ctx.fillStyle = coneGrad;
+    ctx.fill();
 
-    ctx.strokeStyle = "rgba(36, 58, 48, 0.22)";
+    ctx.strokeStyle = "rgba(111, 153, 193, 0.55)";
     ctx.lineWidth = 2;
-    ctx.strokeRect(pipeX + 3, y + 3, physics.pipeW - 6, h - 6);
+    ctx.stroke();
+
+    for (let i = 0; i < 6; i += 1) {
+      const t = (i + 1) / 7;
+      const ringY = baseY + (tipY - baseY) * t;
+      const ringW = halfW * (1 - t);
+      ctx.strokeStyle = `rgba(230, 245, 255, ${0.24 - t * 0.11})`;
+      ctx.beginPath();
+      ctx.moveTo(centerX - ringW, ringY);
+      ctx.lineTo(centerX + ringW, ringY);
+      ctx.stroke();
+    }
   }
 
   function drawBird() {
@@ -785,30 +787,48 @@
     ctx.translate(b.x, b.y);
     ctx.rotate(b.rot);
 
-    // Flamingo body wash.
     for (let i = 0; i < 5; i += 1) {
       ctx.beginPath();
       ctx.ellipse(rand(-2, 2), rand(-1.5, 1.5), b.r + rand(-1.8, 2.4), b.r * 0.74 + rand(-1.6, 1.8), rand(-0.2, 0.2), 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(240, 153, 176, ${0.13 + i * 0.03})`;
+      ctx.fillStyle = `rgba(245, 166, 186, ${0.13 + i * 0.03})`;
       ctx.fill();
     }
 
-    // Wing opens wider when flapping/charging.
+    ctx.save();
+    ctx.translate(-10, 2);
+    ctx.rotate(-0.18);
+    ctx.fillStyle = "rgba(88, 116, 150, 0.92)";
+    ctx.fillRect(-4, -10, 8, 20);
+    ctx.fillStyle = "rgba(64, 90, 124, 0.9)";
+    ctx.fillRect(4, -8, 5, 16);
+    const flame = 9 + wingSpread * 16;
+    const flicker = Math.sin(state.time * 35) * 4;
+    ctx.beginPath();
+    ctx.moveTo(8, -2);
+    ctx.lineTo(20 + flame + flicker, 0);
+    ctx.lineTo(8, 2);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(255, 162, 74, 0.84)";
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(9, -1);
+    ctx.lineTo(16 + flame * 0.6 + flicker * 0.5, 0);
+    ctx.lineTo(9, 1);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(255, 235, 183, 0.9)";
+    ctx.fill();
+    ctx.restore();
+
     ctx.save();
     ctx.translate(-2, -2);
     ctx.rotate(-0.22 - wingSpread * 0.28);
     ctx.beginPath();
     ctx.ellipse(-8, 2, b.r * (0.72 + wingSpread * 0.24), b.r * (0.44 + wingSpread * 0.18), -0.4, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(228, 126, 156, 0.62)";
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(-6, 2, b.r * 0.5, b.r * 0.28, -0.35, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(245, 178, 198, 0.45)";
+    ctx.fillStyle = "rgba(230, 133, 165, 0.62)";
     ctx.fill();
     ctx.restore();
 
-    // Neck + head.
-    ctx.strokeStyle = "rgba(232, 133, 163, 0.78)";
+    ctx.strokeStyle = "rgba(233, 144, 171, 0.78)";
     ctx.lineWidth = 5;
     ctx.lineCap = "round";
     ctx.beginPath();
@@ -818,15 +838,25 @@
 
     ctx.beginPath();
     ctx.ellipse(16, -7, 5.2, 4.6, 0, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(245, 170, 191, 0.9)";
+    ctx.fillStyle = "rgba(247, 179, 199, 0.92)";
     ctx.fill();
+
+    ctx.beginPath();
+    ctx.ellipse(16, -9, 9.5, 8, -0.05, Math.PI * 1.1, Math.PI * 2.1);
+    ctx.strokeStyle = "rgba(220, 241, 255, 0.95)";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(16, -9, 9.2, 7.6, -0.05, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(119, 157, 199, 0.6)";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
 
     ctx.beginPath();
     ctx.ellipse(17, -8, 1.4, 1.4, 0, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(44, 38, 34, 0.84)";
     ctx.fill();
 
-    // Flamingo beak with dark tip.
     ctx.beginPath();
     ctx.moveTo(20, -6);
     ctx.lineTo(30, -4.5);
@@ -834,30 +864,23 @@
     ctx.closePath();
     ctx.fillStyle = "rgba(245, 224, 166, 0.84)";
     ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(24, -4.9);
-    ctx.lineTo(30, -4.4);
-    ctx.lineTo(25.5, -3.2);
-    ctx.closePath();
-    ctx.fillStyle = "rgba(36, 34, 34, 0.84)";
-    ctx.fill();
 
     ctx.restore();
   }
 
   function drawGround() {
     const y = H - GROUND_H;
-    ctx.fillStyle = "rgba(107, 130, 104, 0.5)";
+    ctx.fillStyle = "rgba(224, 239, 255, 0.86)";
     ctx.fillRect(0, y, W, GROUND_H);
 
-    for (let i = 0; i < 160; i += 1) {
-      const x = ((i * 39) + state.camX * 0.5) % (W + 80) - 40;
-      const h = 10 + ((i * 7) % 16);
-      ctx.strokeStyle = "rgba(70, 102, 75, 0.23)";
+    for (let i = 0; i < 90; i += 1) {
+      const x = ((i * 57) + state.camX * 0.34) % (W + 80) - 40;
+      const h = 4 + ((i * 5) % 10);
+      ctx.strokeStyle = "rgba(166, 198, 233, 0.4)";
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(x, H - 8);
-      ctx.quadraticCurveTo(x + 3, H - 8 - h, x + 1.5, H - 8 - h * 0.2);
+      ctx.moveTo(x, y + 4);
+      ctx.lineTo(x + 8, y + 4 + h);
       ctx.stroke();
     }
   }
@@ -983,7 +1006,7 @@
   function render() {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = "#d5e5de";
+    ctx.fillStyle = "#d6e8fc";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.setTransform(viewport.scale, 0, 0, viewport.scale, viewport.offsetX, viewport.offsetY);
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = "fun-flamingo-v1";
+const CACHE_NAME = "jetpack-flamingo-v2";
 const PRECACHE = [
   "./",
   "./index.html",
