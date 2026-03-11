@@ -1,13 +1,13 @@
 {
-  "name": "Fun Flamingo",
-  "short_name": "FunFlamingo",
+  "name": "Jetpack Flamingo",
+  "short_name": "JetpackFlamingo",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#ece8dc",
-  "theme_color": "#c8dfd5",
-  "description": "A watercolor flamingo arcade game with gentle currents and piano-like soundscape.",
+  "background_color": "#e7f0fb",
+  "theme_color": "#a9c6e8",
+  "description": "A winter jetpack arcade game starring a flamingo in an open helmet.",
   "icons": [
     {
       "src": "./icon.svg",

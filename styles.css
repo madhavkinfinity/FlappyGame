@@ -1,10 +1,10 @@
 :root {
-  --paper: #fff7e7;
-  --ink: #2c3a3a;
-  --card: rgba(252, 247, 236, 0.7);
-  --card-border: rgba(65, 89, 84, 0.24);
-  --button-bg: rgba(62, 153, 125, 0.92);
-  --button-hover: rgba(47, 132, 107, 0.96);
+  --paper: #edf5ff;
+  --ink: #1f304a;
+  --card: rgba(236, 244, 255, 0.72);
+  --card-border: rgba(66, 95, 138, 0.28);
+  --button-bg: rgba(63, 123, 196, 0.94);
+  --button-hover: rgba(49, 104, 176, 0.98);
 }
 
 * {
@@ -29,10 +29,10 @@ body {
   font-family: "Georgia", "Palatino Linotype", "Times New Roman", serif;
   color: var(--ink);
   background:
-    radial-gradient(circle at 8% 12%, #fff4dd 0%, transparent 38%),
-    radial-gradient(circle at 88% 20%, #d8ebe5 0%, transparent 44%),
-    radial-gradient(circle at 40% 80%, #e8deda 0%, transparent 34%),
-    #f4efdf;
+    radial-gradient(circle at 8% 12%, #f6fbff 0%, transparent 38%),
+    radial-gradient(circle at 88% 20%, #d9e9ff 0%, transparent 44%),
+    radial-gradient(circle at 40% 80%, #d7e4f6 0%, transparent 34%),
+    #e7f0fb;
 }
 
 body.immersive .hud-top {
@@ -81,9 +81,9 @@ body.immersive .app {
   height: 100%;
   border-radius: 16px;
   overflow: hidden;
-  border: 2px solid rgba(56, 108, 91, 0.38);
-  box-shadow: 0 14px 32px rgba(25, 69, 53, 0.2);
-  background: rgba(211, 243, 229, 0.6);
+  border: 2px solid rgba(71, 112, 168, 0.42);
+  box-shadow: 0 14px 32px rgba(34, 68, 120, 0.24);
+  background: rgba(208, 230, 255, 0.62);
 }
 
 canvas {
@@ -91,7 +91,7 @@ canvas {
   height: 100%;
   display: block;
   touch-action: manipulation;
-  background: linear-gradient(180deg, #ccf0ff 0%, #bde7d8 45%, #9cdda8 100%);
+  background: linear-gradient(180deg, #dff1ff 0%, #c9e0ff 45%, #b4d0f4 100%);
 }
 
 .game-wrap:fullscreen,
@@ -127,7 +127,7 @@ body:has(.game-wrap:-webkit-full-screen) .hud-top {
   gap: 0.8rem;
   text-align: center;
   padding: 1.2rem;
-  background: linear-gradient(150deg, rgba(247, 240, 226, 0.82), rgba(225, 236, 228, 0.65));
+  background: linear-gradient(150deg, rgba(239, 247, 255, 0.84), rgba(214, 231, 252, 0.68));
   backdrop-filter: blur(1.8px);
   opacity: 0;
   pointer-events: none;
@@ -141,9 +141,9 @@ body:has(.game-wrap:-webkit-full-screen) .hud-top {
 
 .splash {
   background:
-    radial-gradient(circle at 20% 16%, rgba(255, 230, 198, 0.74), transparent 42%),
-    radial-gradient(circle at 82% 28%, rgba(203, 233, 223, 0.66), transparent 46%),
-    linear-gradient(160deg, rgba(246, 240, 228, 0.94), rgba(212, 229, 220, 0.8));
+    radial-gradient(circle at 20% 16%, rgba(240, 249, 255, 0.78), transparent 42%),
+    radial-gradient(circle at 82% 28%, rgba(197, 221, 252, 0.7), transparent 46%),
+    linear-gradient(160deg, rgba(236, 246, 255, 0.95), rgba(198, 221, 248, 0.83));
 }
 
 .title-banner {
@@ -191,7 +191,7 @@ body:has(.game-wrap:-webkit-full-screen) .hud-top {
   font-size: clamp(1.18rem, 4.7vw, 2.1rem);
   line-height: 1;
   font-weight: 700;
-  color: #35594f;
+  color: #284a76;
   text-shadow: 0 2px 0 rgba(255, 249, 237, 0.75);
 }
 
