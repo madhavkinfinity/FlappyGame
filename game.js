@@ -89,7 +89,6 @@
 
   let audioCtx = null;
   let masterGain = null;
-  let ambientNodes = null;
   let pianoNodes = null;
 
   let watercolorLayer = createWatercolorLayer(W, H);
@@ -438,7 +437,6 @@
     masterGain.gain.value = 0.2;
     masterGain.connect(audioCtx.destination);
 
-    ambientNodes = createAmbientLoop(audioCtx, masterGain);
     pianoNodes = createPianoLoop(audioCtx, masterGain);
   }
 
@@ -458,71 +456,6 @@
       data[i] = (Math.random() * 2 - 1) * 0.45;
     }
     return buffer;
-  }
-
-  function createAmbientLoop(ctx, dest) {
-    const windBed = ctx.createBufferSource();
-    windBed.buffer = createNoiseBuffer(ctx, 3.2);
-    windBed.loop = true;
-
-    const windWhisper = ctx.createBufferSource();
-    windWhisper.buffer = createNoiseBuffer(ctx, 2.6);
-    windWhisper.loop = true;
-
-    const lowCut = ctx.createBiquadFilter();
-    lowCut.type = "highpass";
-    lowCut.frequency.value = 180;
-
-    const airyBand = ctx.createBiquadFilter();
-    airyBand.type = "bandpass";
-    airyBand.frequency.value = 950;
-    airyBand.Q.value = 0.6;
-
-    const softTone = ctx.createOscillator();
-    softTone.type = "sine";
-    softTone.frequency.value = 240;
-
-    const softToneGain = ctx.createGain();
-    softToneGain.gain.value = 0.01;
-
-    const gustLfo = ctx.createOscillator();
-    gustLfo.type = "sine";
-    gustLfo.frequency.value = 0.05;
-
-    const gustDepth = ctx.createGain();
-    gustDepth.gain.value = 220;
-
-    const gain = ctx.createGain();
-    gain.gain.value = 0.075;
-
-    gustLfo.connect(gustDepth);
-    gustDepth.connect(airyBand.frequency);
-
-    windBed.connect(lowCut);
-    windWhisper.connect(airyBand);
-    lowCut.connect(gain);
-    airyBand.connect(gain);
-
-    softTone.connect(softToneGain);
-    softToneGain.connect(gain);
-    gain.connect(dest);
-
-    windBed.start();
-    windWhisper.start();
-    softTone.start();
-    gustLfo.start();
-
-    return {
-      windBed,
-      windWhisper,
-      lowCut,
-      airyBand,
-      gain,
-      softTone,
-      softToneGain,
-      gustLfo,
-      gustDepth,
-    };
   }
 
   function createPianoLoop(ctx, dest) {
@@ -617,53 +550,35 @@
     const now = audioCtx.currentTime;
 
     const engineCore = audioCtx.createOscillator();
-    engineCore.type = "sawtooth";
-    engineCore.frequency.setValueAtTime(220, now);
-    engineCore.frequency.exponentialRampToValueAtTime(145, now + 0.19);
+    engineCore.type = "triangle";
+    engineCore.frequency.setValueAtTime(300, now);
+    engineCore.frequency.exponentialRampToValueAtTime(215, now + 0.16);
 
     const engineBody = audioCtx.createOscillator();
-    engineBody.type = "square";
-    engineBody.frequency.setValueAtTime(108, now);
-    engineBody.frequency.exponentialRampToValueAtTime(84, now + 0.19);
+    engineBody.type = "sine";
+    engineBody.frequency.setValueAtTime(172, now);
+    engineBody.frequency.exponentialRampToValueAtTime(132, now + 0.16);
 
     const thrustGain = audioCtx.createGain();
     scheduleEnvelope(thrustGain.gain, now, [
       [0.0001, 0],
-      [0.17, 0.018],
-      [0.0001, 0.21],
-    ]);
-
-    const hiss = audioCtx.createBufferSource();
-    hiss.buffer = createNoiseBuffer(audioCtx, 0.24);
-    const hissFilter = audioCtx.createBiquadFilter();
-    hissFilter.type = "bandpass";
-    hissFilter.frequency.value = 2200;
-    hissFilter.Q.value = 1.1;
-    const hissGain = audioCtx.createGain();
-    scheduleEnvelope(hissGain.gain, now, [
-      [0.0001, 0],
-      [0.08, 0.012],
+      [0.13, 0.02],
       [0.0001, 0.18],
     ]);
 
     const saturation = audioCtx.createBiquadFilter();
     saturation.type = "lowpass";
-    saturation.frequency.value = 1700;
+    saturation.frequency.value = 1250;
 
     engineCore.connect(saturation);
     engineBody.connect(saturation);
     saturation.connect(thrustGain);
     thrustGain.connect(masterGain);
-    hiss.connect(hissFilter);
-    hissFilter.connect(hissGain);
-    hissGain.connect(masterGain);
 
     engineCore.start(now);
-    engineCore.stop(now + 0.23);
+    engineCore.stop(now + 0.2);
     engineBody.start(now);
-    engineBody.stop(now + 0.23);
-    hiss.start(now);
-    hiss.stop(now + 0.2);
+    engineBody.stop(now + 0.2);
   }
 
   function playScoreSound() {
@@ -800,8 +715,6 @@
   }
 
   function flap() {
-    resumeAudio();
-
     if (state.mode === "menu") {
       resetGame();
     }
@@ -1277,13 +1190,11 @@
   splashStartBtn.addEventListener("click", startFromSplash);
 
   startBtn.addEventListener("click", () => {
-    resumeAudio();
     resetGame();
     flap();
   });
 
   restartBtn.addEventListener("click", () => {
-    resumeAudio();
     resetGame();
   });
 
