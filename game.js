@@ -63,8 +63,6 @@
     pipeTimer: 0,
     pipeCount: 0,
     camX: 0,
-    ripples: [],
-    rippleTimer: 0,
     lilyPads: [],
     currentFields: createCurrentFields(),
     jetTrail: [],
@@ -168,7 +166,6 @@
 
     state.pipes.length = 0;
     state.pipeTimer = 0;
-    state.ripples.length = 0;
     state.lilyPads = [];
     state.currentFields = createCurrentFields();
   }
@@ -464,56 +461,89 @@
   }
 
   function createAmbientLoop(ctx, dest) {
-    const source = ctx.createBufferSource();
-    source.buffer = createNoiseBuffer(ctx, 2.4);
-    source.loop = true;
+    const windBed = ctx.createBufferSource();
+    windBed.buffer = createNoiseBuffer(ctx, 3.2);
+    windBed.loop = true;
 
-    const filter = ctx.createBiquadFilter();
-    filter.type = "bandpass";
-    filter.frequency.value = 430;
-    filter.Q.value = 0.7;
+    const windWhisper = ctx.createBufferSource();
+    windWhisper.buffer = createNoiseBuffer(ctx, 2.6);
+    windWhisper.loop = true;
 
-    const lfo = ctx.createOscillator();
-    lfo.type = "sine";
-    lfo.frequency.value = 0.07;
+    const lowCut = ctx.createBiquadFilter();
+    lowCut.type = "highpass";
+    lowCut.frequency.value = 180;
 
-    const lfoGain = ctx.createGain();
-    lfoGain.gain.value = 120;
+    const airyBand = ctx.createBiquadFilter();
+    airyBand.type = "bandpass";
+    airyBand.frequency.value = 950;
+    airyBand.Q.value = 0.6;
+
+    const softTone = ctx.createOscillator();
+    softTone.type = "sine";
+    softTone.frequency.value = 240;
+
+    const softToneGain = ctx.createGain();
+    softToneGain.gain.value = 0.01;
+
+    const gustLfo = ctx.createOscillator();
+    gustLfo.type = "sine";
+    gustLfo.frequency.value = 0.05;
+
+    const gustDepth = ctx.createGain();
+    gustDepth.gain.value = 220;
 
     const gain = ctx.createGain();
-    gain.gain.value = 0.06;
+    gain.gain.value = 0.075;
 
-    lfo.connect(lfoGain);
-    lfoGain.connect(filter.frequency);
+    gustLfo.connect(gustDepth);
+    gustDepth.connect(airyBand.frequency);
 
-    source.connect(filter);
-    filter.connect(gain);
+    windBed.connect(lowCut);
+    windWhisper.connect(airyBand);
+    lowCut.connect(gain);
+    airyBand.connect(gain);
+
+    softTone.connect(softToneGain);
+    softToneGain.connect(gain);
     gain.connect(dest);
 
-    source.start();
-    lfo.start();
+    windBed.start();
+    windWhisper.start();
+    softTone.start();
+    gustLfo.start();
 
-    return { source, filter, gain, lfo, lfoGain };
+    return {
+      windBed,
+      windWhisper,
+      lowCut,
+      airyBand,
+      gain,
+      softTone,
+      softToneGain,
+      gustLfo,
+      gustDepth,
+    };
   }
 
   function createPianoLoop(ctx, dest) {
     const gain = ctx.createGain();
-    gain.gain.value = 0.08;
+    gain.gain.value = 0.13;
     gain.connect(dest);
 
     const progression = [
-      [261.63, 329.63, 392.0],
-      [293.66, 369.99, 440.0],
-      [220.0, 261.63, 329.63],
-      [246.94, 329.63, 392.0],
+      [261.63, 329.63, 392.0], // C major
+      [196.0, 246.94, 392.0], // G sus
+      [220.0, 261.63, 329.63], // A minor
+      [174.61, 220.0, 349.23], // F major flavor
     ];
 
-    const loopBars = 16;
-    const noteSpacing = 0.34;
+    const motif = [0, 1, 2, 1, 0, 2, 1, 0];
+    const loopBars = 24;
+    const noteSpacing = 0.3;
     const loopDuration = loopBars * noteSpacing;
     let scheduledUntil = ctx.currentTime;
 
-    function triggerPianoNote(frequency, startAt, hold = 0.56) {
+    function triggerPianoNote(frequency, startAt, hold = 0.62, velocity = 1) {
       const osc = ctx.createOscillator();
       osc.type = "triangle";
       osc.frequency.setValueAtTime(frequency, startAt);
@@ -524,8 +554,8 @@
 
       const voiceGain = ctx.createGain();
       voiceGain.gain.setValueAtTime(0.0001, startAt);
-      voiceGain.gain.linearRampToValueAtTime(0.15, startAt + 0.02);
-      voiceGain.gain.exponentialRampToValueAtTime(0.08, startAt + 0.12);
+      voiceGain.gain.linearRampToValueAtTime(0.18 * velocity, startAt + 0.02);
+      voiceGain.gain.exponentialRampToValueAtTime(0.1 * velocity, startAt + 0.12);
       voiceGain.gain.exponentialRampToValueAtTime(0.0001, startAt + hold);
 
       const lowpass = ctx.createBiquadFilter();
@@ -549,13 +579,18 @@
       while (scheduledUntil < now + 2.8) {
         const loopPos = ((scheduledUntil % loopDuration) + loopDuration) % loopDuration;
         const stepIndex = Math.floor(loopPos / noteSpacing) % loopBars;
-        const chord = progression[Math.floor(stepIndex / 4) % progression.length];
-        const note = chord[stepIndex % chord.length];
-        const octave = stepIndex % 8 < 4 ? 1 : 0.5;
+        const chord = progression[Math.floor(stepIndex / 6) % progression.length];
+        const motifNote = chord[motif[stepIndex % motif.length] % chord.length];
+        const accent = stepIndex % 6 === 0;
 
-        triggerPianoNote(note * octave, scheduledUntil, 0.52);
-        if (stepIndex % 4 === 0) {
-          triggerPianoNote(chord[0] * 0.5, scheduledUntil + noteSpacing * 0.5, 0.65);
+        triggerPianoNote(motifNote, scheduledUntil, accent ? 0.78 : 0.58, accent ? 1.1 : 0.92);
+
+        if (stepIndex % 3 === 0) {
+          triggerPianoNote(chord[0] * 0.5, scheduledUntil + noteSpacing * 0.48, 0.76, 0.82);
+        }
+
+        if (stepIndex % 6 === 4) {
+          triggerPianoNote(chord[2] * 2, scheduledUntil + noteSpacing * 0.28, 0.36, 0.62);
         }
 
         scheduledUntil += noteSpacing;
@@ -581,40 +616,54 @@
     }
     const now = audioCtx.currentTime;
 
-    const thrust = audioCtx.createOscillator();
-    thrust.type = "sawtooth";
-    thrust.frequency.setValueAtTime(180, now);
-    thrust.frequency.exponentialRampToValueAtTime(110, now + 0.14);
+    const engineCore = audioCtx.createOscillator();
+    engineCore.type = "sawtooth";
+    engineCore.frequency.setValueAtTime(220, now);
+    engineCore.frequency.exponentialRampToValueAtTime(145, now + 0.19);
+
+    const engineBody = audioCtx.createOscillator();
+    engineBody.type = "square";
+    engineBody.frequency.setValueAtTime(108, now);
+    engineBody.frequency.exponentialRampToValueAtTime(84, now + 0.19);
 
     const thrustGain = audioCtx.createGain();
     scheduleEnvelope(thrustGain.gain, now, [
       [0.0001, 0],
-      [0.14, 0.015],
-      [0.0001, 0.16],
+      [0.17, 0.018],
+      [0.0001, 0.21],
     ]);
 
     const hiss = audioCtx.createBufferSource();
-    hiss.buffer = createNoiseBuffer(audioCtx, 0.2);
+    hiss.buffer = createNoiseBuffer(audioCtx, 0.24);
     const hissFilter = audioCtx.createBiquadFilter();
     hissFilter.type = "bandpass";
-    hissFilter.frequency.value = 1600;
+    hissFilter.frequency.value = 2200;
+    hissFilter.Q.value = 1.1;
     const hissGain = audioCtx.createGain();
     scheduleEnvelope(hissGain.gain, now, [
       [0.0001, 0],
-      [0.06, 0.01],
-      [0.0001, 0.12],
+      [0.08, 0.012],
+      [0.0001, 0.18],
     ]);
 
-    thrust.connect(thrustGain);
+    const saturation = audioCtx.createBiquadFilter();
+    saturation.type = "lowpass";
+    saturation.frequency.value = 1700;
+
+    engineCore.connect(saturation);
+    engineBody.connect(saturation);
+    saturation.connect(thrustGain);
     thrustGain.connect(masterGain);
     hiss.connect(hissFilter);
     hissFilter.connect(hissGain);
     hissGain.connect(masterGain);
 
-    thrust.start(now);
-    thrust.stop(now + 0.18);
+    engineCore.start(now);
+    engineCore.stop(now + 0.23);
+    engineBody.start(now);
+    engineBody.stop(now + 0.23);
     hiss.start(now);
-    hiss.stop(now + 0.14);
+    hiss.stop(now + 0.2);
   }
 
   function playScoreSound() {
@@ -1110,26 +1159,6 @@
     // Bottom puddle removed to keep terrain clean and consistent.
   }
 
-  function drawRipples() {
-    for (const ripple of state.ripples) {
-      const lifeRatio = 1 - ripple.age / ripple.life;
-      if (lifeRatio <= 0) {
-        continue;
-      }
-      const alpha = 0.22 * lifeRatio;
-      ctx.strokeStyle = `rgba(236, 248, 242, ${alpha.toFixed(3)})`;
-      ctx.lineWidth = 1.5 * lifeRatio + 0.4;
-      ctx.beginPath();
-      ctx.ellipse(ripple.x, ripple.y, ripple.r, ripple.r * 0.48, 0, 0, Math.PI * 2);
-      ctx.stroke();
-
-      ctx.strokeStyle = `rgba(150, 184, 170, ${(alpha * 0.75).toFixed(3)})`;
-      ctx.beginPath();
-      ctx.ellipse(ripple.x, ripple.y, ripple.r * 0.7, ripple.r * 0.28, 0, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-  }
-
   function drawLilyPads() {
     for (const pad of state.lilyPads) {
       const x = wrap(pad.worldX - state.camX * 0.32, W + 140) - 70;
@@ -1176,32 +1205,8 @@
   }
 
   function drawCurrentFields() {
-    for (const field of state.currentFields) {
-      const swirl = Math.sin(state.time * 1.2 + field.phase);
-      const alpha = 0.13 + (swirl + 1) * 0.03;
-
-      ctx.save();
-      ctx.translate(field.x, field.y);
-      ctx.rotate(swirl * 0.2);
-
-      ctx.fillStyle = `hsla(${field.hue}, 46%, 76%, ${alpha.toFixed(3)})`;
-      ctx.beginPath();
-      ctx.ellipse(0, 0, field.rx, field.ry, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.strokeStyle = `rgba(224, 246, 239, ${(alpha * 1.35).toFixed(3)})`;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.ellipse(0, 0, field.rx * 0.78, field.ry * 0.64, 0, 0, Math.PI * 2);
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.moveTo(-field.rx * 0.45, 0);
-      ctx.quadraticCurveTo(-field.rx * 0.1, -field.ry * 0.3, field.rx * 0.36, field.ry * -field.pushY * 0.28);
-      ctx.stroke();
-
-      ctx.restore();
-    }
+    // Current-force gameplay remains active, but visual oval overlays were removed
+    // for a cleaner sky scene.
   }
 
   function drawWatercolorPost() {
